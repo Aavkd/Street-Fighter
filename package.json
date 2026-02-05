@@ -13,7 +13,9 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@types/peerjs": "^0.0.30",
     "bitecs": "^0.3.40",
+    "peerjs": "^1.5.5",
     "phaser": "^3.90.0"
   }
 }

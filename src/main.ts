@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
 import { getWorld, createTestEntity } from './core/state';
-import { startLoop, setCallbacks } from './core/loop';
-import { Position, Velocity, Input } from './ecs/components';
+import { startLoop, setCallbacks, currentP1Input, currentP2Input } from './core/loop';
+import { Position, Velocity, Input, PlayerID } from './ecs/components';
 import { defineQuery } from 'bitecs';
-import { initInput, pushInput, getCurrentInput } from './core/input';
+import { initInput, setPlayerSide } from './core/input';
 import { stateMachineSystem } from './core/fsm';
 import { initRenderer, renderSystem } from './view/renderer';
+import { initNetwork, connectToPeer } from './core/network';
 
 // -- ECS Systems --
 const movementQuery = defineQuery([Position, Velocity]);
-let tickCount = 0;
 
 function movementSystem() {
     const w = getWorld();
@@ -23,21 +23,57 @@ function movementSystem() {
 
 function inputSystem() {
     const w = getWorld();
-    const inputEntities = defineQuery([Input])(w);
-    const current = getCurrentInput();
+    const inputEntities = defineQuery([Input, PlayerID])(w);
     
     for (let i = 0; i < inputEntities.length; i++) {
         const eid = inputEntities[i];
-        Input.flags[eid] = current;
+        const pid = PlayerID.id[eid];
+        if (pid === 0) {
+            Input.flags[eid] = currentP1Input;
+        } else if (pid === 1) {
+            Input.flags[eid] = currentP2Input;
+        }
     }
 }
 
 // -- Main --
-console.log('Starting SF Clone Phase 2...');
+console.log('Starting SF Clone Phase 4 (Netcode)...');
 
 initInput();
-const eid = createTestEntity();
-console.log(`Spawned Entity: ${eid}`);
+// Create P1 and P2
+const p1 = createTestEntity(0);
+const p2 = createTestEntity(1);
+console.log(`Spawned P1: ${p1}, P2: ${p2}`);
+
+// Network Setup
+const urlParams = new URLSearchParams(window.location.search);
+const hostId = urlParams.get('host');
+
+if (hostId) {
+    // We are Client -> P2
+    setPlayerSide(false);
+    console.log("Connecting to Host:", hostId);
+    initNetwork().then(() => {
+        connectToPeer(hostId);
+    });
+} else {
+    // We are Host -> P1
+    setPlayerSide(true);
+    console.log("Initializing Host...");
+    initNetwork().then((id) => {
+        console.log("Host ID:", id);
+        // Display ID
+        const el = document.createElement('div');
+        el.style.position = 'absolute';
+        el.style.top = '10px';
+        el.style.right = '10px';
+        el.style.color = 'white';
+        el.style.background = 'rgba(0,0,0,0.5)';
+        el.style.padding = '10px';
+        el.innerText = `Host ID: ${id}\n(Share this URL with ?host=${id})`;
+        document.body.appendChild(el);
+    });
+}
 
 // Integration with Phaser
 class MainScene extends Phaser.Scene {
@@ -46,12 +82,8 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
-        this.add.text(10, 10, 'SF Clone Phase 2\nArrows: Move/Jump/Crouch\nWASD: Alternative', { color: '#ffffff' });
-        
-        // Ground line (visual only, logic is in FSM)
-        // Ground is at 400
+        this.add.text(10, 10, 'SF Clone Phase 4: Netcode\nArrows/WASD: Move', { color: '#ffffff' });
         this.add.line(0, 400, 0, 0, 800, 0, 0x888888).setOrigin(0,0);
-        
         initRenderer(this);
     }
 }
@@ -69,13 +101,11 @@ new Phaser.Game(config);
 
 // Logic Loop
 setCallbacks(
-    // Update (60Hz)
+    // Update
     () => {
-        pushInput(); // Store in buffer (for rollback later)
-        inputSystem(); // Apply to ECS
+        inputSystem();
         stateMachineSystem();
         movementSystem();
-        tickCount++;
     },
     // Render
     (interpolation) => {

@@ -1,3 +1,5 @@
+import { sendInput } from './network';
+
 export const INPUT_UP    = 1 << 0;
 export const INPUT_DOWN  = 1 << 1;
 export const INPUT_LEFT  = 1 << 2;
@@ -6,10 +8,21 @@ export const INPUT_LP    = 1 << 4; // Light Punch
 export const INPUT_LK    = 1 << 5; // Light Kick
 export const INPUT_HP    = 1 << 6; // Heavy Punch
 
-const BUFFER_SIZE = 60;
-const inputBuffer = new Uint8Array(BUFFER_SIZE);
-let head = 0;
+export const MAX_FRAMES = 60 * 60 * 10; // 10 mins
+const localInputLog = new Uint8Array(MAX_FRAMES);
+const remoteInputLog = new Uint8Array(MAX_FRAMES);
+const remoteInputReceived = new Uint8Array(MAX_FRAMES); 
+
+// Mapping players
+export let localPlayerId = 0; // 0 = P1, 1 = P2
+export let remotePlayerId = 1;
+
 let currentInput = 0;
+
+export function setPlayerSide(isP1: boolean) {
+    localPlayerId = isP1 ? 0 : 1;
+    remotePlayerId = isP1 ? 1 : 0;
+}
 
 export function initInput() {
     if (typeof window === 'undefined') return;
@@ -39,17 +52,28 @@ export function initInput() {
     });
 }
 
-export function pushInput() {
-    inputBuffer[head] = currentInput;
-    head = (head + 1) % BUFFER_SIZE;
+export function addLocalInput(frame: number): number {
+    localInputLog[frame] = currentInput;
+    sendInput(frame, currentInput);
+    return currentInput;
+}
+
+export function addRemoteInput(frame: number, input: number) {
+    remoteInputLog[frame] = input;
+    remoteInputReceived[frame] = 1;
+}
+
+export function getLocalInput(frame: number): number {
+    return localInputLog[frame];
+}
+
+export function getRemoteInput(frame: number): number | null {
+    if (remoteInputReceived[frame] === 1) {
+        return remoteInputLog[frame];
+    }
+    return null;
 }
 
 export function getCurrentInput(): number {
     return currentInput;
-}
-
-export function getInput(framesBack: number): number {
-    let index = head - 1 - framesBack;
-    if (index < 0) index += BUFFER_SIZE;
-    return inputBuffer[index];
 }
