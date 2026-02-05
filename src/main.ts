@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { getWorld, createTestEntity } from './core/state';
 import { startLoop, setCallbacks } from './core/loop';
-import { Position, Velocity } from './ecs/components';
-import { fromFixed } from './lib/math';
+import { Position, Velocity, Input } from './ecs/components';
 import { defineQuery } from 'bitecs';
+import { initInput, pushInput, getCurrentInput } from './core/input';
+import { stateMachineSystem } from './core/fsm';
+import { initRenderer, renderSystem } from './view/renderer';
 
 // -- ECS Systems --
 const movementQuery = defineQuery([Position, Velocity]);
@@ -19,24 +21,38 @@ function movementSystem() {
     }
 }
 
-// -- Main --
-console.log('Starting SF Clone Core...');
+function inputSystem() {
+    const w = getWorld();
+    const inputEntities = defineQuery([Input])(w);
+    const current = getCurrentInput();
+    
+    for (let i = 0; i < inputEntities.length; i++) {
+        const eid = inputEntities[i];
+        Input.flags[eid] = current;
+    }
+}
 
+// -- Main --
+console.log('Starting SF Clone Phase 2...');
+
+initInput();
 const eid = createTestEntity();
-console.log(`Spawned Entity ${eid} at (100, 300) with Velocity (2, 0)`);
+console.log(`Spawned Entity: ${eid}`);
 
 // Integration with Phaser
 class MainScene extends Phaser.Scene {
-    text!: Phaser.GameObjects.Text;
-    circle!: Phaser.GameObjects.Arc;
-
     constructor() {
         super('MainScene');
     }
 
     create() {
-        this.text = this.add.text(10, 10, 'SF Clone Phase 1', { color: '#ffffff' });
-        this.circle = this.add.circle(0, 0, 10, 0xff0000);
+        this.add.text(10, 10, 'SF Clone Phase 2\nArrows: Move/Jump/Crouch\nWASD: Alternative', { color: '#ffffff' });
+        
+        // Ground line (visual only, logic is in FSM)
+        // Ground is at 400
+        this.add.line(0, 400, 0, 0, 800, 0, 0x888888).setOrigin(0,0);
+        
+        initRenderer(this);
     }
 }
 
@@ -49,33 +65,21 @@ const config: Phaser.Types.Core.GameConfig = {
     backgroundColor: '#2d2d2d'
 };
 
-const game = new Phaser.Game(config);
+new Phaser.Game(config);
 
 // Logic Loop
 setCallbacks(
     // Update (60Hz)
     () => {
+        pushInput(); // Store in buffer (for rollback later)
+        inputSystem(); // Apply to ECS
+        stateMachineSystem();
         movementSystem();
         tickCount++;
-        
-        // Log to console every 60 ticks (1 second)
-        if (tickCount % 60 === 0) {
-            const x = fromFixed(Position.x[eid]);
-            console.log(`Tick ${tickCount}: Entity Pos X=${x}`);
-        }
     },
-    // Render (Monitor Hz)
-    () => {
-        // Interpolate position for rendering (simple linear interpolation could go here)
-        // For now, just taking current state
-        const x = fromFixed(Position.x[eid]);
-        const y = fromFixed(Position.y[eid]);
-        
-        const scene = game.scene.getScene('MainScene') as MainScene;
-        if (scene && scene.text) {
-            scene.text.setText(`Tick: ${tickCount}\nEntity Pos: (${x.toFixed(3)}, ${y.toFixed(3)})`);
-            scene.circle.setPosition(x, y);
-        }
+    // Render
+    (interpolation) => {
+        renderSystem(interpolation);
     }
 );
 

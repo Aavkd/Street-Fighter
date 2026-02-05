@@ -1,7 +1,8 @@
 import { createWorld, addEntity, addComponent } from 'bitecs';
 import type { IWorld } from 'bitecs';
-import { Position, Velocity } from '../ecs/components';
+import { Position, Velocity, Input, CharacterState } from '../ecs/components';
 import { toFixed } from '../lib/math';
+import { STATE_IDLE } from './fsm';
 
 let world: IWorld;
 
@@ -15,11 +16,16 @@ export function createTestEntity() {
     const eid = addEntity(w);
     addComponent(w, Position, eid);
     addComponent(w, Velocity, eid);
+    addComponent(w, Input, eid);
+    addComponent(w, CharacterState, eid);
     
     Position.x[eid] = toFixed(100);
     Position.y[eid] = toFixed(300);
-    Velocity.x[eid] = toFixed(2); // 2 units/tick
+    Velocity.x[eid] = 0;
     Velocity.y[eid] = 0;
+
+    CharacterState.state[eid] = STATE_IDLE;
+    CharacterState.facing[eid] = 1;
     
     return eid;
 }
