@@ -83,6 +83,25 @@ We will use **bitECS** for performance and strict data separation.
 - [ ] **VFX:** Particle emitters for hits/blocks (visual only).
 - [ ] **UI:** Health bars, Super meter, Round timer.
 
+#### Asset List (Production)
+*   **Neon Samurai (P1):**
+    - [ ] Idle (4 frames)
+    - [ ] Walk (6 frames)
+    - [ ] Attack Light (3 frames)
+    - [ ] Hit (1 frame)
+*   **Heavy Cyborg (P2):**
+    - [ ] Idle (4 frames)
+    - [ ] Walk (6 frames)
+    - [ ] Attack Heavy (3 frames)
+    - [ ] Hit (1 frame)
+*   **Stages (Clean):**
+    - [ ] Neon Dojo (Rooftop only)
+    - [ ] Cyber Slums (Alleyway only)
+*   **UI Kit:**
+    - [ ] Healthbar Frame & Fill
+    - [ ] Timer Background
+
+
 ---
 
 ## 3. Directory Structure
